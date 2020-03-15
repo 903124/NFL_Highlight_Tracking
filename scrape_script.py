@@ -3,7 +3,6 @@ from seleniumwire import webdriver
 import json
 import pandas as pd
 import numpy as np
-import sys
 import time
 from selenium.common.exceptions import ElementClickInterceptedException
 driver_path = r"/Path/to/webdriver/chromedriver.exe" #Or  r"/Path/to/webdriver/geckodriver.exe" 
@@ -13,14 +12,14 @@ driver = webdriver.Chrome(executable_path=driver_path) #Or webdriver.Firefox(exe
 
 out_df = pd.DataFrame({})
 
-for week in range(5):
-    print(j)
-    driver.get("https://nextgenstats.nfl.com/highlights/play-list/type/team/2019/" + str(18+j) +  "/playerId/playerNameSlug") 
+for week in range(5): #loop for week
+
+    driver.get("https://nextgenstats.nfl.com/highlights/play-list/type/team/2019/" + str(18+j) +  "/playerId/playerNameSlug")  #post season start at "week 18"
     time.sleep(13)
 
 
 
-    for scroll_page in range(4):
+    for scroll_page in range(4): #scroll page for more highlight
         
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(4)
@@ -29,7 +28,7 @@ for week in range(5):
     play_link_list = soup.find_all('a', {"class": "highlight-container-link"},href=True) 
 
 
-    for play in range(len(play_link_list)):
+    for play in range(len(play_link_list)): 
         time.sleep(3)
 
         if (play == 0 ):
@@ -40,7 +39,7 @@ for week in range(5):
                 cookie_button.click()
                 complete_request = driver.requests
 
-        try:
+        try: #press "next play" button
 
             submit_button = driver.find_elements_by_xpath('/html/body/div[2]/div[5]/main/div/div/div[2]/div/div[2]/div[1]/div/div[1]/button/div/i')[0]
             submit_button.click()
@@ -48,7 +47,7 @@ for week in range(5):
             continue
 
 
-for request in driver.requests:
+for request in driver.requests: #collect data from requsted json file
     address_path = request.path
 
     if('slim' in address_path ):
