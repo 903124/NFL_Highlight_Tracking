@@ -56,20 +56,31 @@ for request in driver.requests: #collect data from requsted json file
         try:
             data = json.loads(text.decode('utf-8'))
 
+            poss_team = data['play']['possessionTeamId']
+            home_team = data['schedule']['homeTeamId']
+            
+            
             home_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['homeTrackingData']).pop('playerTrackingData').items()})
                        .reset_index(level=1, drop=True)
                        .join(pd.DataFrame(data['homeTrackingData']))
-                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position']]
+                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
 
             away_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['awayTrackingData']).pop('playerTrackingData').items()})
                        .reset_index(level=1, drop=True)
                        .join(pd.DataFrame(data['awayTrackingData']))
-                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position']]
+                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
 
-
+            if (poss_team == home_team):
+                home_df['possTeam'] = True
+                away_df['possTeam'] = False
+            else:
+                home_df['possTeam'] = False
+                away_df['possTeam'] = True               
+            
             ball_df = pd.DataFrame(data['ballTrackingData'])[['s' ,'time' ,'x' ,'y']]
             ball_df.columns = ['s' ,'time' ,'x' ,'y']
             ball_df['displayName'] = 'ball'
+
             temp_df = pd.concat([home_df,away_df,ball_df])
             temp_df['game_id'] = data['gameId']
             temp_df['play_id'] = data['gsisPlayId']
@@ -81,8 +92,10 @@ for request in driver.requests: #collect data from requsted json file
             event_df['time'] = event_df['time'].dt.round("100ms")
 
             temp_df = pd.merge(temp_df,event_df,how='left')
-            out_df = pd.concat([out_df,temp_df ])
+#             temp_df = temp_df.drop_duplicates()
 
+
+            out_df = pd.concat([out_df,temp_df ])
 
         except json.JSONDecodeError:
             continue
