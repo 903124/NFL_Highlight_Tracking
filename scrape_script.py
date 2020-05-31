@@ -10,11 +10,10 @@ driver = webdriver.Chrome(executable_path=driver_path) #Or webdriver.Firefox(exe
 
 
 
-out_df = pd.DataFrame({})
-
-for week in range(5): #loop for week
-
-    driver.get("https://nextgenstats.nfl.com/highlights/play-list/type/team/2019/" + str(18+j) +  "/playerId/playerNameSlug")  #post season start at "week 18"
+processed_link_list = []
+for week in range(21): #loop for week
+    out_df = pd.DataFrame({})
+    driver.get("https://nextgenstats.nfl.com/highlights/play-list/type/team/2019/" + str(1+week) +  "/playerId/playerNameSlug")  #post season start at "week 18"
     time.sleep(13)
 
 
@@ -32,7 +31,7 @@ for week in range(5): #loop for week
         time.sleep(3)
 
         if (play == 0 ):
-            driver.get("https://nextgenstats.nfl.com" + event_link_list[0]['href'])
+            driver.get("https://nextgenstats.nfl.com" + play_link_list[0]['href'])
             time.sleep(5)
             if (week == 0):
                 cookie_button = driver.find_element_by_xpath('/html/body/div[1]/div/a')
@@ -46,57 +45,59 @@ for week in range(5): #loop for week
         except  (ElementClickInterceptedException,IndexError ) as e:
             continue
 
+    
+    for request in driver.requests: #collect data from requsted json file
+        address_path = request.path
+        
+        if('slim' in address_path and address_path not in processed_link_list):
+            processed_link_list.append(address_path)
+            text = request.response.body
+        #                     print(text)
+            try:
+                data = json.loads(text.decode('utf-8'))
 
-for request in driver.requests: #collect data from requsted json file
-    address_path = request.path
-
-    if('slim' in address_path ):
-        text = request.response.body
-    #                     print(text)
-        try:
-            data = json.loads(text.decode('utf-8'))
-
-            poss_team = data['play']['possessionTeamId']
-            home_team = data['schedule']['homeTeamId']
-            
-            
-            home_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['homeTrackingData']).pop('playerTrackingData').items()})
-                       .reset_index(level=1, drop=True)
-                       .join(pd.DataFrame(data['homeTrackingData']))
-                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
-
-            away_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['awayTrackingData']).pop('playerTrackingData').items()})
-                       .reset_index(level=1, drop=True)
-                       .join(pd.DataFrame(data['awayTrackingData']))
-                       .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
-
-            if (poss_team == home_team):
-                home_df['possTeam'] = True
-                away_df['possTeam'] = False
-            else:
-                home_df['possTeam'] = False
-                away_df['possTeam'] = True               
-            
-            ball_df = pd.DataFrame(data['ballTrackingData'])[['s' ,'time' ,'x' ,'y']]
-            ball_df.columns = ['s' ,'time' ,'x' ,'y']
-            ball_df['displayName'] = 'ball'
-
-            temp_df = pd.concat([home_df,away_df,ball_df])
-            temp_df['game_id'] = data['gameId']
-            temp_df['play_id'] = data['gsisPlayId']
-
-            event_df = pd.DataFrame(data['events'])[['name','time']]
-            event_df.columns = ['event_name','time']
-            temp_df['time'] = pd.to_datetime(temp_df['time'])
-            event_df['time'] = pd.to_datetime(event_df['time'])
-            event_df['time'] = event_df['time'].dt.round("100ms")
-
-            temp_df = pd.merge(temp_df,event_df,how='left')
-#             temp_df = temp_df.drop_duplicates()
+                poss_team = data['play']['possessionTeamId']
+                home_team = data['schedule']['homeTeamId']
 
 
-            out_df = pd.concat([out_df,temp_df ])
+                home_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['homeTrackingData']).pop('playerTrackingData').items()})
+                           .reset_index(level=1, drop=True)
+                           .join(pd.DataFrame(data['homeTrackingData']))
+                           .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
 
-        except json.JSONDecodeError:
-            continue
-out_df.to_csv('NFL_Highlight_Tracking/Highlight_19_post.csv')
+                away_df = (pd.concat({i: pd.DataFrame(x) for i, x in pd.DataFrame(data['awayTrackingData']).pop('playerTrackingData').items()})
+                           .reset_index(level=1, drop=True)
+                           .join(pd.DataFrame(data['awayTrackingData']))
+                           .reset_index(drop=True))[['dir','o' ,'s','time','x' ,'y','displayName','nflId'  ,'position','gsisId']]
+
+                if (poss_team == home_team):
+                    home_df['possTeam'] = True
+                    away_df['possTeam'] = False
+                else:
+                    home_df['possTeam'] = False
+                    away_df['possTeam'] = True               
+
+                ball_df = pd.DataFrame(data['ballTrackingData'])[['s' ,'time' ,'x' ,'y']]
+                ball_df.columns = ['s' ,'time' ,'x' ,'y']
+                ball_df['displayName'] = 'ball'
+
+                temp_df = pd.concat([home_df,away_df,ball_df])
+                temp_df['game_id'] = data['gameId']
+                temp_df['play_id'] = data['gsisPlayId']
+
+                event_df = pd.DataFrame(data['events'])[['name','time']]
+                event_df.columns = ['event_name','time']
+                temp_df['time'] = pd.to_datetime(temp_df['time'])
+                event_df['time'] = pd.to_datetime(event_df['time'])
+                event_df['time'] = event_df['time'].dt.round("100ms")
+
+                temp_df = pd.merge(temp_df,event_df,how='left')
+    #             temp_df = temp_df.drop_duplicates()
+
+
+                out_df = pd.concat([out_df,temp_df ])
+
+            except (json.JSONDecodeError,AttributeError ) as e:
+                continue
+    out_df.to_csv('tracking_data/Highlight_19_week' + str(week+1) + '.csv')
+    del driver.requests
